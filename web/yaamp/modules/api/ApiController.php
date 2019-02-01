@@ -150,7 +150,10 @@ class ApiController extends CommonController
 				if ($workers > 0) {
 
 					$algohr = (double) dboscalar("SELECT SUM(difficulty) AS algo_hr FROM shares WHERE time>$since AND algo=:algo",array(':algo'=>$coin->algo));
-					$factor = ($algohr > 0 && !empty($shares)) ? (double) $shares['coin_hr'] / $algohr : 1.;
+					if($coin->algo == 'cuckoo')
+						$factor = 1 / 0x80000000;
+					else
+						$factor = ($algohr > 0 && !empty($shares)) ? (double) $shares['coin_hr'] / $algohr : 1.;
 					$algo_hashrate = controller()->memcache->get_database_scalar("api_status_hashrate-{$coin->algo}",
 						"SELECT hashrate FROM hashrate WHERE algo=:algo ORDER BY time DESC LIMIT 1", array(':algo'=>$coin->algo)
 					);
