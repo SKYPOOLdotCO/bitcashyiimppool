@@ -76,18 +76,29 @@ if($algo != 'all' && $showrental)
 foreach($list as $coin)
 {
 	$name = substr($coin->name, 0, 12);
-	$difficulty = Itoa2($coin->difficulty, 3);
+
+	if ($coin->algo == 'cuckoo') $coin->difficulty *= 0x80000000;
+        else $difficulty = Itoa2($coin->difficulty, 3);
+	
 	$price = bitcoinvaluetoa($coin->price);
 	$height = number_format($coin->block_height, 0, '.', ' ');
 //	$pool_ttf = $coin->pool_ttf? sectoa2($coin->pool_ttf): '';
 	$pool_ttf = $total_rate? $coin->difficulty * 0x100000000 / $total_rate: 0;
 	$reward = round($coin->reward, 3);
-
 	$btcmhd = yaamp_profitability($coin);
-	$pool_hash = yaamp_coin_rate($coin->id);
-	$real_ttf = $pool_hash? $coin->difficulty * 0x100000000 / $pool_hash: 0;
 
-	$pool_hash_sfx = $pool_hash? Itoa2($pool_hash).'h/s': '';
+	// PoolHash factor & conditional for BitCash cuckoo cycle/second
+	if($coin->algo == 'cuckoo') {
+                $pool_hash = yaamp_coin_rate($coin->id);
+                $pool_hash /= 0x80000000;
+                $pool_hash_sfx = $pool_hash? Itoa2($pool_hash).'&nbsp;c/s': '';
+        } else {
+                $pool_hash = yaamp_coin_rate($coin->id);
+                $pool_hash_sfx = $pool_hash? Itoa2($pool_hash).'h/s': '';
+        }
+	// End PoolHash
+
+	$real_ttf = $pool_hash? $coin->difficulty * 0x100000000 / $pool_hash: 0;
 	$real_ttf = $real_ttf? sectoa2($real_ttf): '';
 	$pool_ttf = $pool_ttf? sectoa2($pool_ttf): '';
 
@@ -95,9 +106,31 @@ foreach($list as $coin)
 	$pool_hash_pow_sfx = $pool_hash_pow? Itoa2($pool_hash_pow).'h/s': '';
 
 	$min_ttf = $coin->network_ttf>0? min($coin->actual_ttf, $coin->network_ttf): $coin->actual_ttf;
-	$network_hash = $coin->difficulty * 0x100000000 / ($min_ttf? $min_ttf: 60);
-	$network_hash = $network_hash? 'network hash '.Itoa2($network_hash).'h/s': '';
 
+	// NetHash factor & conditional for BitCash cuckoo cycle/second
+	if ($coin->algo == 'cuckoo') {
+                $remote = new WalletRPC($coin);
+                if ($remote) $info = $remote->getmininginfo();
+                $coin->network_hash = $info['networkcyclesps'];
+                $network_hash = $coin->network_hash? strtoupper(Itoa2($coin->network_hash)).'&nbsp;c/s': '';
+        } else {
+                $coin->network_hash = controller()->memcache->get("yiimp-nethashrate-{$coin->symbol}");
+                        if (!$coin->network_hash) {
+                        $remote = new WalletRPC($coin);
+                        if ($remote) $info = $remote->getmininginfo();
+                                if (isset($info['networkhashps'])) {
+                                $coin->network_hash = $info['networkhashps'];
+                                controller()->memcache->set("yiimp-nethashrate-{$coin->symbol}", $info['networkhashps'], 180);
+                                }
+                                else if (isset($info['netmhashps'])) {
+                                $coin->network_hash = floatval($info['netmhashps']) * 1e6;
+                                controller()->memcache->set("yiimp-nethashrate-{$coin->symbol}", $coin->network_hash, 180);
+                                }
+                        }
+                $network_hash = $coin->network_hash? strtoupper(Itoa2($coin->network_hash)).'h/s': '';
+        }
+	// End NetHash
+	
 	if(controller()->admin && $services)
 	{
 		foreach($services as $i=>$service)
