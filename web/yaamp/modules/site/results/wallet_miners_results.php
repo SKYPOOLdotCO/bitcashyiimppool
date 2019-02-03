@@ -93,6 +93,8 @@ if(count($workers))
 	foreach($workers as $worker)
 	{
 		$user_rate1 = yaamp_worker_rate($worker->id, $worker->algo);
+		if($worker->algo == 'cuckoo') $user_rate1 /= 0x80000000;
+		
 		$user_rate1_bad = yaamp_worker_rate_bad($worker->id, $worker->algo);
 		$user_rejects = yaamp_worker_shares_bad($worker->id, $worker->algo);
 		if (!$user_rejects) $user_rejects = '';
@@ -100,7 +102,8 @@ if(count($workers))
 		$percent = ($user_rate1 + $user_rate1_bad)? $user_rate1_bad * 100 / ($user_rate1 + $user_rate1_bad): 0;
 		$percent = $percent? round($percent, 2).'%': '';
 
-		$user_rate1 = $user_rate1? Itoa2($user_rate1).'h/s': '';
+		if($worker->algo == 'cuckoo') $user_rate1 = $user_rate1? Itoa2($user_rate1).'&nbsp;c/s': '';
+                else $user_rate1 = $user_rate1? Itoa2($user_rate1).'h/s': '';
 
 		$version = substr($worker->version, 0, 20);
 		$password = substr($worker->password, 0, 32);
